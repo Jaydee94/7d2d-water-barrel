@@ -65,6 +65,74 @@ AutomatedWaterBarrel/          ← drop this folder into <GameDir>/Mods/
 
 ---
 
+## Testing on a Local Dedicated Server
+
+`Deploy-Mod.ps1` is a PowerShell script that compiles the mod and deploys it
+to a local dedicated server in one step. It is the recommended way to iterate
+on the mod during development.
+
+### Prerequisites
+
+* Windows with **PowerShell 5.1** or **PowerShell 7+**
+* **.NET SDK 6+** — [download](https://dotnet.microsoft.com/download)
+* A local **7 Days to Die** installation (game client **or** dedicated server)
+  to provide the reference DLLs
+* A local **7 Days to Die Dedicated Server** installation to deploy and test
+  against
+
+### Quick Start
+
+Open a PowerShell terminal in the repository root and run:
+
+```powershell
+.\Deploy-Mod.ps1
+```
+
+This uses the Steam default paths for both the game client and the dedicated
+server. If your installations are elsewhere, pass them explicitly:
+
+```powershell
+.\Deploy-Mod.ps1 `
+    -GamePath   "D:\Games\7DaysToDie" `
+    -ServerPath "D:\Servers\7DaysToDie"
+```
+
+To deploy **and** start the server automatically, add `-Launch`:
+
+```powershell
+.\Deploy-Mod.ps1 -Launch
+```
+
+### What the Script Does
+
+| Step | Action |
+|------|--------|
+| 1 | Verifies that the .NET SDK, the project file, the game DLL directory, and the server path all exist. |
+| 2 | Runs `dotnet build WaterBarrelMod.csproj -c Release -p:GamePath=<GamePath>`, which writes `AutomatedWaterBarrel.dll` to the repository root. |
+| 3 | Copies `ModInfo.xml`, `AutomatedWaterBarrel.dll`, and the `Config/` folder into `<ServerPath>\Mods\AutomatedWaterBarrel\`. |
+| 4 | *(Optional, `-Launch`)* Starts `7DaysToDieServer.exe` from the server directory. |
+
+### Script Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `-GamePath` | `C:\Program Files (x86)\Steam\steamapps\common\7 Days To Die` | Path to the 7 Days to Die installation used for build references (client **or** dedicated server). |
+| `-ServerPath` | `C:\Program Files (x86)\Steam\steamapps\common\7 Days To Die Dedicated Server` | Path to the dedicated server where the mod is deployed. |
+| `-Configuration` | `Release` | Build configuration (`Release` or `Debug`). |
+| `-Launch` | *(switch)* | Start the dedicated server after deployment. |
+
+### Verifying the Mod Is Working
+
+1. Start the dedicated server (manually or with `-Launch`).
+2. Connect with a game client (the server runs without any matching client mod).
+3. Place a **Dew Collector** and an **Automated Water Barrel** within 5 blocks
+   of each other.
+4. Wait for the Dew Collector to fill — the water items should transfer
+   automatically to the barrel within 10 seconds.
+5. Check the server console log for any errors from `AutomatedWaterBarrel`.
+
+---
+
 ## Installation (pre-built)
 
 1. Download the latest release and extract it.
