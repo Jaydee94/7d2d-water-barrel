@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    AutomatedWaterBarrel – Config/blocks.xml
+    =========================================
+    Defines (or overrides) the "automatedWaterBarrel" block.
+
+    The block inherits its base behaviour from the vanilla "cntWoodBucket"
+    container so that it already acts as a loot container out of the box.
+    Key customisations:
+      • Tags includes "WaterStorage" so the C# patch can discover this block
+        by tag in addition to its exact name.
+      • Container size is set via the loot list in Config/loot.xml.
+      • Can be crafted from planks + tin cans (see recipes.xml – not included
+        here; add your own recipe if desired).
+-->
+<blocks>
+    <block name="automatedWaterBarrel">
+        <!-- Inherit loot-container behaviour from a vanilla wooden container -->
+        <property name="Extends" value="cntWoodBucket" />
+
+        <!-- Localised description (see Config/Localization.txt) -->
+        <property name="DescriptionKey" value="automatedWaterBarrelDesc" />
+
+        <!-- Custom Tags – used by the C# patch to identify this as a WaterStorage -->
+        <property name="Tags" value="WaterStorage,storage" />
+
+        <!--
+            Loot list – defined in Config/loot.xml.
+            The container starts empty; the Harmony patch fills it at runtime.
+        -->
+        <property name="LootList" value="automatedWaterBarrelLoot" />
+
+        <!-- Prevent it from being looted passively; the automation moves items in -->
+        <property name="IsPlayerAccessible" value="true" />
+
+        <!-- Model / shape – re-use the existing wooden barrel shape -->
+        <property name="Shape" value="ModelEntity" />
+        <property name="Model" value="Entities/Structures/Containers/WoodBucket/WoodBucketModel" />
+
+        <!-- Block stats -->
+        <property name="Material" value="Mwood_weak" />
+        <property name="MaxDamage" value="200" />
+        <property name="Weight" value="50" />
+
+        <!-- Prevent unstable placement without structural support -->
+        <property name="StabilitySupport" value="false" />
+
+        <!-- Icon shown in the UI / hotbar -->
+        <property name="CustomIcon" value="cntWoodBucket" />
+    </block>
+</blocks>

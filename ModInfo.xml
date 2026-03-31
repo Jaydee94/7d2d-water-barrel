@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xml>
+    <Name value="AutomatedWaterBarrel" />
+    <DisplayName value="Automated Water Barrel" />
+    <Version value="1.0.0" />
+    <Description value="Automatically transfers water produced by Dew Collectors into a nearby Automated Water Barrel storage container." />
+    <Author value="Jaydee94" />
+    <Website value="https://github.com/Jaydee94/7d2d-water-barrel" />
+</xml>

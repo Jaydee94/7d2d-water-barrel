@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    AutomatedWaterBarrel – Config/loot.xml
+    ========================================
+    Defines the loot group for the "automatedWaterBarrel" block.
+    The container starts empty; items are placed into it exclusively
+    by the Harmony automation (DewCollectorPatch) at runtime.
+-->
+<lootcontainers>
+    <!--
+        An empty loot list so the game does not complain about a missing
+        "automatedWaterBarrelLoot" reference.  No items spawn inside the
+        barrel on placement — the Dew Collector automation fills it.
+    -->
+    <lootgroup name="automatedWaterBarrelLoot">
+    </lootgroup>
+
+    <lootcontainer id="automatedWaterBarrelLoot" count="0" size="12,4"
+                   open_sound="Misc/loot_container_open_metal"
+                   close_sound="Misc/loot_container_close_metal"
+                   loot_quality_template="baseTemplate">
+    </lootcontainer>
+</lootcontainers>
