@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Change this to your local 7 Days to Die installation path -->
+    <GamePath>C:\Program Files (x86)\Steam\steamapps\common\7 Days To Die</GamePath>
+
+    <AssemblyName>AutomatedWaterBarrel</AssemblyName>
+    <RootNamespace>AutomatedWaterBarrel</RootNamespace>
+    <TargetFramework>net472</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>10</LangVersion>
+
+    <!-- Do not copy any runtime files – the game already has them -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+
+    <!-- Output the DLL directly into the mod root so it is picked up by the game -->
+    <OutputPath>$(MSBuildProjectDirectory)</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Core game assembly -->
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GamePath)\7DaysToDie_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- Harmony patching library (shipped with the game) -->
+    <Reference Include="0Harmony">
+      <HintPath>$(GamePath)\7DaysToDie_Data\Managed\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- Unity engine core -->
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GamePath)\7DaysToDie_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="src\**\*.cs" />
+  </ItemGroup>
+
+</Project>
