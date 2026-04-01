@@ -2,13 +2,22 @@
 
   <PropertyGroup>
     <!-- Change this to your local 7 Days to Die installation path -->
-    <GamePath>C:\Program Files (x86)\Steam\steamapps\common\7 Days To Die</GamePath>
+    <GamePath Condition="'$(GamePath)' == '' and Exists('/home/steam/.steam/SteamApps/common/7 Days to Die Dedicated Server')">/home/steam/.steam/SteamApps/common/7 Days to Die Dedicated Server</GamePath>
+    <GamePath Condition="'$(GamePath)' == '' and Exists('/opt/7dtd')">/opt/7dtd</GamePath>
+    <GamePath Condition="'$(GamePath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\7 Days To Die</GamePath>
+
+    <ManagedDir Condition="Exists('$(GamePath)/7DaysToDie_Data/Managed')">$(GamePath)/7DaysToDie_Data/Managed</ManagedDir>
+    <ManagedDir Condition="'$(ManagedDir)' == '' and Exists('$(GamePath)/7DaysToDieServer_Data/Managed')">$(GamePath)/7DaysToDieServer_Data/Managed</ManagedDir>
+    <ManagedDir Condition="'$(ManagedDir)' == ''">$(GamePath)/7DaysToDie_Data/Managed</ManagedDir>
 
     <AssemblyName>AutomatedWaterBarrel</AssemblyName>
     <RootNamespace>AutomatedWaterBarrel</RootNamespace>
     <TargetFramework>net472</TargetFramework>
     <Nullable>enable</Nullable>
     <LangVersion>10</LangVersion>
+
+    <HarmonyPath Condition="Exists('$(ManagedDir)/0Harmony.dll')">$(ManagedDir)/0Harmony.dll</HarmonyPath>
+    <HarmonyPath Condition="'$(HarmonyPath)' == '' and Exists('$(GamePath)/Mods/0_TFP_Harmony/0Harmony.dll')">$(GamePath)/Mods/0_TFP_Harmony/0Harmony.dll</HarmonyPath>
 
     <!-- Do not copy any runtime files – the game already has them -->
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
@@ -22,22 +31,27 @@
   <ItemGroup>
     <!-- Core game assembly -->
     <Reference Include="Assembly-CSharp">
-      <HintPath>$(GamePath)\7DaysToDie_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(ManagedDir)/Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
 
     <!-- Harmony patching library (shipped with the game) -->
     <Reference Include="0Harmony">
-      <HintPath>$(GamePath)\7DaysToDie_Data\Managed\0Harmony.dll</HintPath>
+      <HintPath>$(HarmonyPath)</HintPath>
       <Private>false</Private>
     </Reference>
 
     <!-- Unity engine core -->
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(GamePath)\7DaysToDie_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(ManagedDir)/UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
+
+  <Target Name="FailIfGameDllsMissing" BeforeTargets="ResolveReferences"
+          Condition="!Exists('$(ManagedDir)/Assembly-CSharp.dll') or !Exists('$(ManagedDir)/UnityEngine.CoreModule.dll') or !Exists('$(HarmonyPath)')">
+    <Error Text="Required 7DTD build references were not found. Set GamePath to a valid client or dedicated server install, or pass -p:GamePath=... in CI." />
+  </Target>
 
   <ItemGroup>
     <Compile Include="src\**\*.cs" />

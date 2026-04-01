@@ -1,0 +1,75 @@
+name: CI
+
+"on":
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build mod DLL
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache 7DTD server payload
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.7dtd-server
+          key: ${{ runner.os }}-steamcmd-7dtd-v1
+          restore-keys: |
+            ${{ runner.os }}-steamcmd-7dtd-
+
+      - name: Install 7DTD Dedicated Server
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$HOME/steamcmd"
+          cd "$HOME/steamcmd"
+          curl -fsSL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" -o steamcmd_linux.tar.gz
+          tar -xzf steamcmd_linux.tar.gz
+
+          SERVER_ROOT="${{ github.workspace }}/.7dtd-server"
+          mkdir -p "$SERVER_ROOT"
+
+          if ! ./steamcmd.sh \
+            +force_install_dir "$SERVER_ROOT" \
+            +login anonymous \
+            +app_info_update 1 \
+            +app_update 294420 validate \
+            +quit; then
+            echo "First SteamCMD attempt failed; retrying with cleaned appmanifest..."
+            rm -f "$SERVER_ROOT/steamapps/appmanifest_294420.acf"
+            ./steamcmd.sh \
+              +force_install_dir "$SERVER_ROOT" \
+              +login anonymous \
+              +app_info_update 1 \
+              +app_update 294420 validate \
+              +quit
+          fi
+
+          if [[ -f "$SERVER_ROOT/7DaysToDie_Data/Managed/Assembly-CSharp.dll" ]]; then
+            exit 0
+          fi
+
+          if [[ -f "$SERVER_ROOT/7DaysToDieServer_Data/Managed/Assembly-CSharp.dll" ]]; then
+            exit 0
+          fi
+
+          echo "ERROR: Assembly-CSharp.dll not found after dedicated server install."
+          exit 1
+
+      - name: Build AutomatedWaterBarrel
+        run: |
+          SERVER_ROOT="${{ github.workspace }}/.7dtd-server"
+          dotnet build WaterBarrelMod.csproj \
+            -c Release \
+            -p:GamePath="$SERVER_ROOT"
+        working-directory: ${{ github.workspace }}

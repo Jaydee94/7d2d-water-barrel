@@ -1,10 +1,11 @@
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 
 /// <summary>
-/// Harmony Postfix patch for <see cref="TileEntityDewCollector.HandleUpdate"/>.
+/// Harmony Postfix patch for <see cref="TileEntityCollector.HandleUpdate"/>.
 ///
 /// Server-side automation logic:
 ///   1. Runs at most once every <see cref="CheckIntervalSeconds"/> seconds per
@@ -18,7 +19,7 @@ using UnityEngine;
 ///      into the container and the Dew Collector's output slot is cleared so
 ///      that the next production cycle can begin immediately.
 /// </summary>
-[HarmonyPatch(typeof(TileEntityDewCollector), "HandleUpdate")]
+[HarmonyPatch(typeof(TileEntityCollector), "HandleUpdate")]
 public static class DewCollectorToWaterBarrelPatch
 {
     // ---------------------------------------------------------------------------
@@ -56,20 +57,20 @@ public static class DewCollectorToWaterBarrelPatch
     // ---------------------------------------------------------------------------
 
     /// <summary>
-    /// Called by Harmony immediately after every <c>TileEntityDewCollector.HandleUpdate</c>
+    /// Called by Harmony immediately after every <c>TileEntityCollector.HandleUpdate</c>
     /// invocation.
     /// </summary>
     /// <param name="__instance">The Dew Collector tile entity being updated.</param>
-    /// <param name="_world">The game world (injected by Harmony from the callee's parameter).</param>
+    /// <param name="world">The game world (injected by Harmony from the callee's parameter).</param>
     [HarmonyPostfix]
-    public static void Postfix(TileEntityDewCollector __instance, World _world)
+    public static void Postfix(TileEntityCollector __instance, World world)
     {
         try
         {
             // ----------------------------------------------------------------
             // 1. Server-side guard
             // ----------------------------------------------------------------
-            if (_world == null || !_world.IsServer())
+            if (world == null || !IsServerContext())
                 return;
 
             // ----------------------------------------------------------------
@@ -87,20 +88,16 @@ public static class DewCollectorToWaterBarrelPatch
             // ----------------------------------------------------------------
             // 3. Check output slot
             // ----------------------------------------------------------------
-            ItemStack[]? items = __instance.items;
-            if (items == null || items.Length == 0)
+            if (!TryGetCollectorOutputItem(__instance, out ItemStack outputItem))
                 return;
 
-            // The Dew Collector places its produced water item in slot 0.
-            const int OutputSlot = 0;
-            ItemStack outputItem = items[OutputSlot];
-            if (outputItem == null || outputItem.IsEmpty())
+            if (outputItem.IsEmpty())
                 return;
 
             // ----------------------------------------------------------------
             // 4. Find a nearby storage container
             // ----------------------------------------------------------------
-            TileEntityLootContainer? storage = FindNearbyStorage(_world, pos);
+            TileEntityLootContainer? storage = FindNearbyStorage(world, pos);
             if (storage == null)
                 return;
 
@@ -109,18 +106,18 @@ public static class DewCollectorToWaterBarrelPatch
             // ----------------------------------------------------------------
             if (TryTransferItem(ref outputItem, storage))
             {
-                items[OutputSlot] = ItemStack.Empty.Clone();
+                TryClearCollectorOutput(__instance);
                 __instance.SetModified();
                 storage.SetModified();
 
-                Log.Out(
+                Debug.Log(
                     $"[AutomatedWaterBarrel] Transferred water from DewCollector at {pos} " +
                     $"to storage at {storage.ToWorldPos()}.");
             }
         }
         catch (Exception ex)
         {
-            Log.Error($"[AutomatedWaterBarrel] Patch error: {ex}");
+            Debug.LogError($"[AutomatedWaterBarrel] Patch error: {ex}");
         }
     }
 
@@ -134,6 +131,160 @@ public static class DewCollectorToWaterBarrelPatch
     /// thread and does not require the main-thread <see cref="Time.time"/>.
     /// </summary>
     private static double GetGameTime() => Time.realtimeSinceStartup;
+
+    /// <summary>
+    /// Uses reflection so the patch tolerates small server-state API shifts
+    /// across 7DTD releases while still avoiding client-side inventory changes.
+    /// </summary>
+    private static bool IsServerContext()
+    {
+        Type gameManagerType = typeof(GameManager);
+        PropertyInfo? statusProperty =
+            gameManagerType.GetProperty("IsDedicatedServer", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance) ??
+            gameManagerType.GetProperty("IsDedicated", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance) ??
+            gameManagerType.GetProperty("IsServer", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance);
+
+        if (statusProperty == null)
+            return true;
+
+        object? target = null;
+        MethodInfo? getter = statusProperty.GetMethod;
+        if (getter == null)
+            return true;
+
+        if (!getter.IsStatic)
+        {
+            PropertyInfo? instanceProperty =
+                gameManagerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            target = instanceProperty?.GetValue(null);
+
+            if (target == null)
+            {
+                MethodInfo? getGameManagerMethod =
+                    gameManagerType.GetMethod("GetGameManager", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+                target = getGameManagerMethod?.Invoke(null, null);
+            }
+        }
+
+        object? value = statusProperty.GetValue(target);
+        return value is bool isServer && isServer;
+    }
+
+    /// <summary>
+    /// Reads the Dew Collector output item in a version-tolerant way.
+    /// Different 7DTD versions expose collector output under different
+    /// field/property names.
+    /// </summary>
+    private static bool TryGetCollectorOutputItem(TileEntityCollector collector, out ItemStack outputItem)
+    {
+        outputItem = ItemStack.Empty.Clone();
+        Type type = collector.GetType();
+
+        // Common layout: ItemStack[] items with output at slot 0.
+        foreach (string memberName in new[] { "items", "Items" })
+        {
+            FieldInfo? field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field?.FieldType == typeof(ItemStack[]))
+            {
+                ItemStack[]? arr = field.GetValue(collector) as ItemStack[];
+                if (arr != null && arr.Length > 0)
+                {
+                    outputItem = arr[0];
+                    return true;
+                }
+            }
+
+            PropertyInfo? prop = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (prop?.PropertyType == typeof(ItemStack[]))
+            {
+                ItemStack[]? arr = prop.GetValue(collector, null) as ItemStack[];
+                if (arr != null && arr.Length > 0)
+                {
+                    outputItem = arr[0];
+                    return true;
+                }
+            }
+        }
+
+        // Alternate layout: single ItemStack output member.
+        foreach (string memberName in new[] { "outputItem", "OutputItem", "output", "Output", "item", "Item" })
+        {
+            FieldInfo? field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field?.FieldType == typeof(ItemStack))
+            {
+                object? raw = field.GetValue(collector);
+                if (raw is ItemStack stack)
+                {
+                    outputItem = stack;
+                    return true;
+                }
+            }
+
+            PropertyInfo? prop = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (prop?.PropertyType == typeof(ItemStack))
+            {
+                object? raw = prop.GetValue(collector, null);
+                if (raw is ItemStack stack)
+                {
+                    outputItem = stack;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Clears the Dew Collector output item via reflection across API versions.
+    /// </summary>
+    private static void TryClearCollectorOutput(TileEntityCollector collector)
+    {
+        Type type = collector.GetType();
+        ItemStack empty = ItemStack.Empty.Clone();
+
+        foreach (string memberName in new[] { "items", "Items" })
+        {
+            FieldInfo? field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field?.FieldType == typeof(ItemStack[]))
+            {
+                ItemStack[]? arr = field.GetValue(collector) as ItemStack[];
+                if (arr != null && arr.Length > 0)
+                {
+                    arr[0] = empty;
+                    return;
+                }
+            }
+
+            PropertyInfo? prop = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (prop?.PropertyType == typeof(ItemStack[]))
+            {
+                ItemStack[]? arr = prop.GetValue(collector, null) as ItemStack[];
+                if (arr != null && arr.Length > 0)
+                {
+                    arr[0] = empty;
+                    return;
+                }
+            }
+        }
+
+        foreach (string memberName in new[] { "outputItem", "OutputItem", "output", "Output", "item", "Item" })
+        {
+            FieldInfo? field = type.GetField(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field?.FieldType == typeof(ItemStack))
+            {
+                field.SetValue(collector, empty);
+                return;
+            }
+
+            PropertyInfo? prop = type.GetProperty(memberName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (prop?.PropertyType == typeof(ItemStack) && prop.CanWrite)
+            {
+                prop.SetValue(collector, empty, null);
+                return;
+            }
+        }
+    }
 
     /// <summary>
     /// Searches a cube of side (2*<see cref="SearchRadius"/>+1) centred on
@@ -210,7 +361,7 @@ public static class DewCollectorToWaterBarrelPatch
 
         foreach (ItemStack slot in container.items)
         {
-            if (slot == null || slot.IsEmpty())
+            if (slot.IsEmpty())
                 return true;
         }
         return false;
@@ -236,7 +387,7 @@ public static class DewCollectorToWaterBarrelPatch
         // rather than a local copy.
         for (int i = 0; i < slots.Length && remaining > 0; i++)
         {
-            if (slots[i] == null || slots[i].IsEmpty() ||
+            if (slots[i].IsEmpty() ||
                 slots[i].itemValue.type != source.itemValue.type)
             {
                 continue;
@@ -257,7 +408,7 @@ public static class DewCollectorToWaterBarrelPatch
         {
             for (int i = 0; i < slots.Length; i++)
             {
-                if (slots[i] != null && !slots[i].IsEmpty())
+                if (!slots[i].IsEmpty())
                     continue;
 
                 slots[i] = source.Clone();

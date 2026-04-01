@@ -1,0 +1,141 @@
+name: Build and Release
+
+"on":
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'Config/**'
+      - 'ModInfo.xml'
+      - 'WaterBarrelMod.csproj'
+      - '.github/workflows/release.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish mod release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache 7DTD server payload
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.7dtd-server
+          key: ${{ runner.os }}-steamcmd-7dtd-v1
+          restore-keys: |
+            ${{ runner.os }}-steamcmd-7dtd-
+
+      - name: Install 7DTD Dedicated Server
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$HOME/steamcmd"
+          cd "$HOME/steamcmd"
+          curl -fsSL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" -o steamcmd_linux.tar.gz
+          tar -xzf steamcmd_linux.tar.gz
+
+          SERVER_ROOT="${{ github.workspace }}/.7dtd-server"
+          mkdir -p "$SERVER_ROOT"
+
+          if ! ./steamcmd.sh \
+            +force_install_dir "$SERVER_ROOT" \
+            +login anonymous \
+            +app_info_update 1 \
+            +app_update 294420 validate \
+            +quit; then
+            echo "First SteamCMD attempt failed; retrying with cleaned appmanifest..."
+            rm -f "$SERVER_ROOT/steamapps/appmanifest_294420.acf"
+            ./steamcmd.sh \
+              +force_install_dir "$SERVER_ROOT" \
+              +login anonymous \
+              +app_info_update 1 \
+              +app_update 294420 validate \
+              +quit
+          fi
+
+          if [[ -f "$SERVER_ROOT/7DaysToDie_Data/Managed/Assembly-CSharp.dll" ]]; then
+            exit 0
+          fi
+
+          if [[ -f "$SERVER_ROOT/7DaysToDieServer_Data/Managed/Assembly-CSharp.dll" ]]; then
+            exit 0
+          fi
+
+          echo "ERROR: Assembly-CSharp.dll not found after dedicated server install."
+          exit 1
+
+      - name: Read mod version
+        id: modversion
+        run: |
+          VERSION=$(grep -oP '(?<=value=")[^"]+' ModInfo.xml | sed -n '3p')
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Mod version: ${VERSION}"
+
+      - name: Build AutomatedWaterBarrel
+        run: |
+          SERVER_ROOT="${{ github.workspace }}/.7dtd-server"
+          dotnet build WaterBarrelMod.csproj \
+            -c Release \
+            -p:GamePath="$SERVER_ROOT"
+        working-directory: ${{ github.workspace }}
+
+      - name: Package mod
+        run: |
+          MOD_VERSION="${{ steps.modversion.outputs.VERSION }}"
+          STAGING="staging/AutomatedWaterBarrel"
+
+          mkdir -p "${STAGING}/Config"
+
+          cp ModInfo.xml "${STAGING}/"
+          cp AutomatedWaterBarrel.dll "${STAGING}/"
+          cp Config/* "${STAGING}/Config/"
+
+          cd staging
+          zip -r "../AutomatedWaterBarrel-v${MOD_VERSION}.zip" AutomatedWaterBarrel/
+          echo "Created AutomatedWaterBarrel-v${MOD_VERSION}.zip"
+        working-directory: ${{ github.workspace }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MOD_VERSION="${{ steps.modversion.outputs.VERSION }}"
+          TAG="v${MOD_VERSION}"
+          ASSET="AutomatedWaterBarrel-v${MOD_VERSION}.zip"
+
+          gh release delete "${TAG}" --yes 2>/dev/null || true
+          git push origin ":refs/tags/${TAG}" 2>/dev/null || true
+
+          gh release create "${TAG}" "${ASSET}" \
+            --title "AutomatedWaterBarrel ${TAG}" \
+            --notes "## Automated Water Barrel ${TAG}
+
+          Automated release built from \`main\` for **7 Days to Die v2.5**.
+
+          ### Installation
+          1. Download \`${ASSET}\` and unzip it.
+          2. Copy the \`AutomatedWaterBarrel/\` folder into your server's \`Mods/\` directory.
+          3. Restart the server.
+
+          ### What's inside
+          \`\`\`
+          AutomatedWaterBarrel/
+          ├── ModInfo.xml
+          ├── AutomatedWaterBarrel.dll
+          └── Config/
+              ├── blocks.xml
+              └── Localization.txt
+          \`\`\`
+
+          See the [README](https://github.com/${{ github.repository }}/blob/main/README.md) for build and usage details."

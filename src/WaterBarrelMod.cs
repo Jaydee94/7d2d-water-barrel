@@ -1,5 +1,6 @@
 using HarmonyLib;
 using System.Reflection;
+using UnityEngine;
 
 /// <summary>
 /// Entry point for the AutomatedWaterBarrel mod.
@@ -14,6 +15,6 @@ public class WaterBarrelMod : IModApi
         _harmony = new Harmony("com.jaydee94.automatedwaterbarrel");
         _harmony.PatchAll(Assembly.GetExecutingAssembly());
 
-        Log.Out("[AutomatedWaterBarrel] Mod loaded – DewCollector → WaterBarrel automation active.");
+        Debug.Log("[AutomatedWaterBarrel] Mod loaded - DewCollector -> WaterBarrel automation active.");
     }
 }
