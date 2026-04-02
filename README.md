@@ -6,10 +6,22 @@ It moves water from nearby Dew Collectors into an Automated Water Barrel, so you
 
 ## What It Does
 
-- Moves produced water into a nearby barrel automatically
-- Works on the server only
-- Does not require players to install the mod locally
-- Supports the included Automated Water Barrel block
+- Adds a craftable **Automated Water Barrel** block
+- Automatically transfers water produced by Dew Collectors into a nearby barrel
+- Scans a 5-block radius around each Dew Collector every 10 seconds
+- Works on the server only — players do not need to install the mod locally
+
+## Crafting
+
+The Automated Water Barrel is crafted at a **Workbench** (60 seconds).
+
+| Ingredient | Amount |
+|---|---|
+| Scrap Polymers | 10 |
+| Forged Iron | 5 |
+| Electrical Parts | 3 |
+| Spring | 2 |
+| Nails | 10 |
 
 ## Installation
 
@@ -20,10 +32,11 @@ It moves water from nearby Dew Collectors into an Automated Water Barrel, so you
 
 ## Basic Use
 
-1. Place a Dew Collector.
-2. Place an Automated Water Barrel nearby.
-3. Wait for the collector to produce water.
-4. The water should move into the barrel automatically.
+1. Craft an Automated Water Barrel at a Workbench.
+2. Place a Dew Collector.
+3. Place the Automated Water Barrel within 5 blocks of the collector.
+4. Wait for the collector to produce water.
+5. The water is transferred into the barrel automatically.
 
 ## For Development
 
@@ -61,6 +74,9 @@ AutomatedWaterBarrel/
 ├── ModInfo.xml
 ├── AutomatedWaterBarrel.dll
 └── Config/
+    ├── blocks.xml
+    ├── recipes.xml
+    └── Localization.txt
 ```
 
 ## License
