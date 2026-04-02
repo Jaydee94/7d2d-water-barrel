@@ -1,3 +1,4 @@
 Key,File,Type,UsedInMainMenu,NoTranslate,english,Context / Alternate Text,german,spanish,french,italian,japanese,koreana,polish,brazilian,russian,turkish,schinese,tchinese
 
-automatedWaterBarrelDesc,blocks,Block,,,"A large wooden barrel connected to nearby Dew Collectors. Water is automatically transferred into this barrel as it is produced.",,"Ein großes Holzfass, das mit nahegelegenen Taukollektoren verbunden ist. Wasser wird automatisch in dieses Fass übertragen, sobald es produziert wird.",,,,,,,,,,,,
+automatedWaterBarrel,blocks,Block,,,"Automated Water Barrel",,Automatisiertes Wasserfass,,,,,,,,,,,,
+automatedWaterBarrelDesc,blocks,Block,,,"A large plastic barrel connected to nearby Dew Collectors. Water is automatically transferred into this barrel as it is produced.",,"Ein großes Kunststoff-Fass, das mit nahegelegenen Taukollektoren verbunden ist. Wasser wird automatisch in dieses Fass übertragen, sobald es produziert wird.",,,,,,,,,,,,
