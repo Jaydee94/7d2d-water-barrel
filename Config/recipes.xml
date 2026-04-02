@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configs>
+    <!--
+        Crafting recipe for the Automated Water Barrel.
+        Crafted at a Workbench to reflect the electrical/mechanical automation involved.
+        Ingredients:
+          - 10x Scrap Polymers   – plastic barrel body
+          - 5x  Forged Iron      – metal fittings and frame
+          - 3x  Electrical Parts – automation electronics / pump controller
+          - 2x  Spring           – mechanical pump mechanism
+          - 10x Nails            – assembly
+    -->
+    <append xpath="/recipes">
+        <recipe name="automatedWaterBarrel" count="1" craft_area="workbench" craft_time="60">
+            <ingredient name="resourceScrapPolymers" count="10"/>
+            <ingredient name="resourceForgedIron" count="5"/>
+            <ingredient name="resourceElectricParts" count="3"/>
+            <ingredient name="resourceSpring" count="2"/>
+            <ingredient name="resourceNail" count="10"/>
+        </recipe>
+    </append>
+</configs>
